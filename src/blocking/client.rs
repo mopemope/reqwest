@@ -16,6 +16,8 @@ use super::wait;
 use crate::{async_impl, header, IntoUrl, Method, Proxy, redirect};
 #[cfg(feature = "__tls")]
 use crate::{Certificate, Identity};
+#[cfg(feature = "cookies")]
+use crate::cookie;
 
 /// A `Client` to make Requests with.
 ///
@@ -171,6 +173,16 @@ impl ClientBuilder {
     #[cfg(feature = "cookies")]
     pub fn cookie_store(self, enable: bool) -> ClientBuilder {
         self.with_inner(|inner| inner.cookie_store(enable))
+    }
+
+    #[cfg(feature = "cookies")]
+    pub fn set_cookie_store(mut self, cookie_store_json: Vec<u8>) -> ClientBuilder {
+        let cookie_store = cookie::CookieStore(
+            cookie_store::CookieStore::load_json(cookie_store_json.as_ref()).unwrap(),
+        );
+
+        self.config.cookie_store = Some(cookie_store);
+        self
     }
 
     /// Enable auto gzip decompression by checking the `Content-Encoding` response header.
@@ -474,6 +486,16 @@ impl Client {
     /// This is the same as `ClientBuilder::new()`.
     pub fn builder() -> ClientBuilder {
         ClientBuilder::new()
+    }
+
+    #[cfg(feature = "cookies")]
+    pub fn cookie_store_json(&self) -> Option<Vec<u8>> {
+        self.inner.cookie_store.as_ref().map(|rw| {
+            let mut s = vec![];
+            let lock = rw.read().unwrap();
+            (*lock).0.save_json(&mut s).unwrap();
+            s
+        })
     }
 
     /// Convenience method to make a `GET` request to a URL.

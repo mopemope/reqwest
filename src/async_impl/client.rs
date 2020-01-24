@@ -11,8 +11,8 @@ use http::header::{
     Entry, HeaderMap, HeaderValue, ACCEPT, ACCEPT_ENCODING, CONTENT_ENCODING, CONTENT_LENGTH,
     CONTENT_TYPE, LOCATION, PROXY_AUTHORIZATION, RANGE, REFERER, TRANSFER_ENCODING, USER_AGENT,
 };
-use http::Uri;
 use http::uri::Scheme;
+use http::Uri;
 use hyper::client::ResponseFuture;
 #[cfg(feature = "native-tls-crate")]
 use native_tls_crate::TlsConnector;
@@ -179,7 +179,6 @@ impl ClientBuilder {
                         cert.add_to_native_tls(&mut tls);
                     }
 
-
                     #[cfg(feature = "native-tls")]
                     {
                         if let Some(id) = config.identity {
@@ -246,7 +245,9 @@ impl ClientBuilder {
         if let Some(http2_initial_stream_window_size) = config.http2_initial_stream_window_size {
             builder.http2_initial_stream_window_size(http2_initial_stream_window_size);
         }
-        if let Some(http2_initial_connection_window_size) = config.http2_initial_connection_window_size {
+        if let Some(http2_initial_connection_window_size) =
+            config.http2_initial_connection_window_size
+        {
             builder.http2_initial_connection_window_size(http2_initial_connection_window_size);
         }
 
@@ -277,7 +278,6 @@ impl ClientBuilder {
     }
 
     // Higher-level options
-
 
     /// Sets the `User-Agent` header to be used by this client.
     ///
@@ -360,7 +360,6 @@ impl ClientBuilder {
         self
     }
 
-
     /// Enable a persistent cookie store for the client.
     ///
     /// Cookies received in responses will be preserved and included in
@@ -378,6 +377,28 @@ impl ClientBuilder {
         } else {
             None
         };
+        self
+    }
+
+    /// Set cookie store
+    #[cfg(feature = "cookies")]
+    pub fn set_cookie_store(mut self, cookie_store_json: Vec<u8>) -> ClientBuilder {
+        let cookie_store = cookie::CookieStore(
+            cookie_store::CookieStore::load_json(cookie_store_json.as_ref()).unwrap(),
+        );
+
+        self.config.cookie_store = Some(cookie_store);
+        self
+    }
+
+    /// Set cookie store
+    #[cfg(feature = "cookies")]
+    pub fn set_cookie_store(mut self, cookie_store_json: Vec<u8>) -> ClientBuilder {
+        let cookie_store = cookie::CookieStore(
+            cookie_store::CookieStore::load_json(cookie_store_json.as_ref()).unwrap(),
+        );
+
+        self.config.cookie_store = Some(cookie_store);
         self
     }
 
@@ -534,7 +555,10 @@ impl ClientBuilder {
     /// Sets the max connection-level flow control for HTTP2
     ///
     /// Default is currently 65,535 but may change internally to optimize for common uses.
-    pub fn http2_initial_connection_window_size(mut self, sz: impl Into<Option<u32>>) -> ClientBuilder {
+    pub fn http2_initial_connection_window_size(
+        mut self,
+        sz: impl Into<Option<u32>>,
+    ) -> ClientBuilder {
         self.config.http2_initial_connection_window_size = sz.into();
         self
     }
@@ -654,7 +678,6 @@ impl ClientBuilder {
         self
     }
 
-
     /// Force using the Rustls TLS backend.
     ///
     /// Since multiple TLS backends can be optionally enabled, this option will
@@ -697,6 +720,17 @@ impl Client {
     /// This is the same as `ClientBuilder::new()`.
     pub fn builder() -> ClientBuilder {
         ClientBuilder::new()
+    }
+
+    /// get cookie store
+    #[cfg(feature = "cookies")]
+    pub fn cookie_store_json(&self) -> Option<Vec<u8>> {
+        self.inner.cookie_store.as_ref().map(|rw| {
+            let mut s = vec![];
+            let lock = rw.read().unwrap();
+            (*lock).0.save_json(&mut s).unwrap();
+            s
+        })
     }
 
     /// Convenience method to make a `GET` request to a URL.
@@ -833,7 +867,6 @@ impl Client {
         let timeout = timeout
             .or(self.inner.request_timeout)
             .map(|dur| tokio::time::delay_for(dur));
-
 
         *req.headers_mut() = headers.clone();
 
@@ -1014,14 +1047,11 @@ impl ClientRef {
 
         f.field("default_headers", &self.headers);
 
-
         if let Some(ref d) = self.request_timeout {
             f.field("timeout", d);
         }
     }
 }
-
-
 
 pub(super) struct Pending {
     inner: PendingInner,
@@ -1227,10 +1257,7 @@ impl Future for PendingRequest {
                             debug!("redirect policy disallowed redirection to '{}'", loc);
                         }
                         redirect::ActionKind::Error(err) => {
-                            return Poll::Ready(Err(crate::error::redirect(
-                                err,
-                                self.url.clone(),
-                            )));
+                            return Poll::Ready(Err(crate::error::redirect(err, self.url.clone())));
                         }
                     }
                 }
